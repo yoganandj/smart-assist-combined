@@ -4,20 +4,6 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-class LoginRequest(BaseModel):
-    """Payload for POST /login."""
-
-    passcode: str = Field(..., description="10-digit numeric demo passcode.")
-
-
-class LoginResponse(BaseModel):
-    """Result of a login attempt."""
-
-    success: bool
-    message: str
-    token: str | None = None
-
-
 class ChatMessage(BaseModel):
     """A single message in the conversation history."""
 
@@ -43,3 +29,11 @@ class ChatResponse(BaseModel):
     """The assistant's reply."""
 
     reply: str
+
+
+class CurrentUserResponse(BaseModel):
+    """Signed-in user's identity and assigned app roles."""
+
+    userId: str
+    displayName: str
+    roles: list[str]

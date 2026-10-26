@@ -2,16 +2,18 @@
 TPF Assistant — FastAPI backend.
 
 Exposes:
-  POST /login
+  GET  /auth/me
   POST /chat
+  POST /chat/stream
   GET  /health
 
-Also serves the Angular frontend from the "static" folder.
+Also serves the built Angular frontend from frontend/dist when available.
 """
 
 import logging
 import os
 import json
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,13 +21,12 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from agent_client import FoundryAgentError, FoundryAgentService
-from auth import create_access_token, require_auth
+from auth import AuthenticatedUser, require_app_role
 from config import get_settings
 from models import (
     ChatRequest,
     ChatResponse,
-    LoginRequest,
-    LoginResponse,
+    CurrentUserResponse,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -56,10 +57,20 @@ app.add_middleware(
 # Serve Angular Static Files
 # ---------------------------------------------------------
 
-STATIC_DIR = "static"
+APP_DIR = Path(__file__).resolve().parent
+_STATIC_CANDIDATES = (
+    APP_DIR / "frontend" / "dist" / "frontend" / "browser",
+    APP_DIR.parent / "frontend" / "dist" / "frontend" / "browser",
+)
+STATIC_DIR = next(
+    (candidate for candidate in _STATIC_CANDIDATES if candidate.is_dir()),
+    _STATIC_CANDIDATES[0],
+)
 
 if os.path.isdir(STATIC_DIR):
-    app.mount("/assets", StaticFiles(directory=os.path.join(STATIC_DIR, "assets")), name="assets")
+    assets_dir = STATIC_DIR / "assets"
+    if assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
 # ---------------------------------------------------------
 # API Routes
@@ -73,39 +84,19 @@ def health():
     }
 
 
-@app.post("/login", response_model=LoginResponse, tags=["auth"])
-def login(payload: LoginRequest):
-
-    passcode = (payload.passcode or "").strip()
-
-    if len(passcode) != 10 or not passcode.isdigit():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Passcode must be exactly 10 digits.",
-        )
-
-    if passcode != settings.demo_passcode:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid passcode. Please try again.",
-        )
-
-    token = create_access_token(
-        subject="demo-user",
-        settings=settings,
-    )
-
-    return LoginResponse(
-        success=True,
-        message="Login successful.",
-        token=token,
+@app.get("/auth/me", response_model=CurrentUserResponse, tags=["auth"])
+def current_user(user: AuthenticatedUser = Depends(require_app_role)):
+    return CurrentUserResponse(
+        userId=user.user_id,
+        displayName=user.display_name,
+        roles=list(user.roles),
     )
 
 
 @app.post("/chat", response_model=ChatResponse, tags=["chat"])
 def chat(
     payload: ChatRequest,
-    _user: str = Depends(require_auth),
+    _user: AuthenticatedUser = Depends(require_app_role),
 ):
 
     message = (payload.message or "").strip()
@@ -136,7 +127,7 @@ def chat(
 @app.post("/chat/stream", tags=["chat"])
 def chat_stream(
         payload: ChatRequest,
-        _user: str = Depends(require_auth),
+        _user: AuthenticatedUser = Depends(require_app_role),
     ) -> StreamingResponse:
         """Stream assistant responses as Server-Sent Events."""
 
@@ -199,7 +190,7 @@ def chat_stream(
 
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon():
-    path = os.path.join(STATIC_DIR, "favicon.ico")
+    path = STATIC_DIR / "favicon.ico"
     if os.path.exists(path):
         return FileResponse(path)
     raise HTTPException(status_code=404)
@@ -215,10 +206,9 @@ def root():
 
 @app.get("/{full_path:path}", include_in_schema=False)
 def angular_routes(full_path: str):
-
-    requested = os.path.join(STATIC_DIR, full_path)
-
-    if os.path.isfile(requested):
+    static_root = STATIC_DIR.resolve()
+    requested = (static_root / full_path).resolve()
+    if requested.is_relative_to(static_root) and requested.is_file():
         return FileResponse(requested)
 
     index_path = os.path.join(STATIC_DIR, "index.html")

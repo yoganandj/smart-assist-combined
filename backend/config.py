@@ -76,17 +76,10 @@ class Settings:
             "AZURE_AUTH_MODE", "default"
         ).strip().lower()
 
-        # --- Application ---
-        # Hardcoded demo passcode for the POC login screen.
-        self.demo_passcode: str = os.getenv("DEMO_PASSCODE", "1234567890").strip()
-
-        # --- Auth (JWT) ---
-        # Secret used to sign access tokens. MUST be overridden in production.
-        self.jwt_secret: str = os.getenv(
-            "JWT_SECRET", "change-me-in-production-use-a-long-random-string"
+        # --- App Service Authentication / Entra app-role authorization ---
+        self.required_app_role: str = os.getenv(
+            "EASYAUTH_REQUIRED_APP_ROLE", "americanusers"
         ).strip()
-        self.jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256").strip()
-        self.jwt_expire_minutes: int = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
 
         self.system_prompt: str = os.getenv(
             "SYSTEM_PROMPT",
