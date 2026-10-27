@@ -1,15 +1,14 @@
 <main class="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center gap-4 px-6 text-center">
   <h1 class="text-3xl font-semibold">Sign in to TPF Assistant</h1>
 
-  @if (isCheckingSession) {
-    <p role="status">Checking your session...</p>
-  } @else {
-    <p role="alert">{{ errorMessage }}</p>
-    <a
-      class="rounded-md bg-blue-700 px-5 py-3 font-medium text-white hover:bg-blue-800"
-      href="/.auth/login/aad?post_login_redirect_uri=%2Fchat"
-    >
-      Sign in with your organization account
-    </a>
-  }
+  <p>
+    Use your organization account. If you already have an active session,
+    single sign-on may continue without asking you to enter your credentials.
+  </p>
+  <a
+    class="rounded-md bg-blue-700 px-5 py-3 font-medium text-white hover:bg-blue-800"
+    href="/.auth/login/aad?post_login_redirect_uri=%2Fchat"
+  >
+    Continue with organization SSO
+  </a>
 </main>

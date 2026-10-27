@@ -1,59 +1,32 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { HttpErrorResponse } from '@angular/common/http';
-import { Router, provideRouter } from '@angular/router';
-import { of, throwError } from 'rxjs';
-import { vi } from 'vitest';
+import { provideRouter } from '@angular/router';
 import { Login } from './login';
-import { Auth } from '../services/auth';
 
 describe('Login', () => {
   let component: Login;
   let fixture: ComponentFixture<Login>;
-  let auth: { login: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
-    auth = { login: vi.fn() };
-
     await TestBed.configureTestingModule({
       imports: [Login],
-      providers: [
-        provideRouter([]),
-        { provide: Auth, useValue: auth },
-      ],
+      providers: [provideRouter([])],
     }).compileComponents();
 
     fixture = TestBed.createComponent(Login);
     component = fixture.componentInstance;
+    fixture.detectChanges();
   });
 
   it('should create', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should subscribe to the auth check and navigate to chat on success', () => {
-    auth.login.mockReturnValue(
-      of({ userId: 'user-123', displayName: 'Test User', roles: [] }),
-    );
-    const router = TestBed.inject(Router);
-    const navigateSpy = vi
-      .spyOn(router, 'navigateByUrl')
-      .mockResolvedValue(true);
+  it('shows the SSO option immediately without checking the current session', () => {
+    const ssoLink = fixture.nativeElement.querySelector(
+      'a[href="/.auth/login/aad?post_login_redirect_uri=%2Fchat"]',
+    ) as HTMLAnchorElement;
 
-    fixture.detectChanges();
-
-    expect(auth.login).toHaveBeenCalledOnce();
-    expect(navigateSpy).toHaveBeenCalledWith('/chat');
-  });
-
-  it('should show a sign-in message when the session is unauthorized', () => {
-    auth.login.mockReturnValue(
-      throwError(() => new HttpErrorResponse({ status: 401 })),
-    );
-
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.textContent).toContain(
-      'Sign in with your organization account to continue.',
-    );
+    expect(ssoLink).toBeTruthy();
+    expect(ssoLink.textContent).toContain('Continue with organization SSO');
   });
 });
